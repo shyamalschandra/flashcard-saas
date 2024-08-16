@@ -9,26 +9,32 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@clerk/nextjs": "^5.3.1",
+    "@clerk/nextjs": "^4.23.2",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
+    "@mui/icons-material": "^5.16.7",
     "@mui/material": "^5.16.7",
+    "autoprefixer": "^10.0.0",
+    "axios": "^1.7.4",
     "firebase": "^10.12.5",
-    "next": "14.2.5",
+    "next": "^14.2.5",
     "ollama": "^0.5.8",
     "openai": "^4.55.7",
-    "react": "^18",
-    "react-dom": "^18",
-    "stripe": "^16.7.0"
+    "postcss": "^8.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "stripe": "^16.7.0",
+    "swr": "^2.2.5"
   },
   "devDependencies": {
+    "@types/axios": "^0.9.36",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "eslint": "^8",
     "eslint-config-next": "14.2.5",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.10",
     "typescript": "^5"
   }
 }

@@ -57,7 +57,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ response: parsedData })
   } catch (error) {
-    console.error('Error in Ollama API route:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Error in Ollama API route:', error as Error)
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }
 }

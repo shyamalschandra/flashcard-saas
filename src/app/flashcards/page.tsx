@@ -1,10 +1,15 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Box, Button, Card, CardContent, Typography, Container, TextField, CircularProgress } from '@mui/material'
+import { Box, Button, Card, CardContent, Typography, Container, TextField, CircularProgress, IconButton } from '@mui/material'
+import { db, auth } from '../../../lib/firebase'
+import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy, limit, startAfter } from 'firebase/firestore'
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth'
+import { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore'
 
 // Define the Flashcard type
 type Flashcard = {
+  id?: string;
   question: string;
   answer: string;
 }
@@ -16,6 +21,63 @@ export default function FlashcardsPage() {
   const [topic, setTopic] = useState('')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null)
+
+  useEffect(() => {
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log('User is signed in:', user)
+        fetchExistingFlashcards()
+      } else {
+        console.log('No user is signed in')
+        // Optionally, you can sign in a test user for development purposes
+        signInWithEmailAndPassword(auth, 'test@example.com', 'password')
+          .then(({ user }) => {
+            console.log('Signed in as:', user)
+            fetchExistingFlashcards()
+          })
+          .catch(error => {
+            console.error('Error signing in:', error)
+          })
+      }
+    })
+  }, [])
+
+  const fetchExistingFlashcards = async (loadMore = false) => {
+    try {
+      console.log('Fetching flashcards, loadMore:', loadMore)
+      const flashcardsCollection = collection(db, 'flashcards')
+      let flashcardsQuery = query(flashcardsCollection, orderBy('createdAt'), limit(10))
+
+      if (loadMore && lastVisible) {
+        console.log('Loading more flashcards after:', lastVisible)
+        flashcardsQuery = query(flashcardsCollection, orderBy('createdAt'), startAfter(lastVisible), limit(10))
+      }
+
+      const flashcardsSnapshot = await getDocs(flashcardsQuery)
+      if (flashcardsSnapshot.empty) {
+        console.log('No matching documents.')
+        return
+      }
+
+      const existingFlashcards = flashcardsSnapshot.docs.map(doc => {
+        console.log('Fetched document:', doc.id, doc.data())
+        return { id: doc.id, ...doc.data() } as Flashcard
+      })
+      setLastVisible(flashcardsSnapshot.docs[flashcardsSnapshot.docs.length - 1])
+
+      if (loadMore) {
+        setFlashcards(prevFlashcards => [...prevFlashcards, ...existingFlashcards])
+      } else {
+        setFlashcards(existingFlashcards)
+      }
+    } catch (error) {
+      console.error('Error fetching flashcards:', error)
+      setError('Failed to fetch flashcards')
+    }
+  }
 
   const generateFlashcards = async () => {
     setGenerating(true)
@@ -31,7 +93,7 @@ export default function FlashcardsPage() {
         },
         // ... more flashcards
       ]
-      Ensure each question is concise and each answer is brief but informative. Do not include any text outside of the JSON array.`;
+      Ensure each question is concise and each answer is brief but informative. Do not include any text outside of the JSON array.`
 
       console.log('Sending prompt to API:', prompt)
 
@@ -46,8 +108,8 @@ export default function FlashcardsPage() {
       console.log('API response status:', response.status)
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(`API responded with status ${response.status}: ${errorData.error || 'Unknown error'}`)
+        const errorData = await response.text() // Change to text to handle non-JSON error responses
+        throw new Error(`API responded with status ${response.status}: ${errorData || 'Unknown error'}`)
       }
 
       const data = await response.json()
@@ -70,7 +132,7 @@ export default function FlashcardsPage() {
       setTopic('')
     } catch (error) {
       console.error('Error generating flashcards:', error)
-      setError(error.message)
+      setError(error instanceof Error ? error.message : 'An unknown error occurred')
     } finally {
       setGenerating(false)
     }
@@ -85,6 +147,33 @@ export default function FlashcardsPage() {
     setShowAnswer(true)
   }
 
+  const saveFlashcards = async () => {
+    setSaving(true)
+    try {
+      const flashcardsCollection = collection(db, 'flashcards')
+      for (const card of flashcards) {
+        if (!card.id) {
+          await addDoc(flashcardsCollection, card)
+        }
+      }
+      alert('Flashcards saved successfully!')
+    } catch (error) {
+      console.error('Error saving flashcards:', error)
+      setError('Failed to save flashcards')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchKeyword(e.target.value)
+  }
+
+  const filteredFlashcards = flashcards.filter(card =>
+    card.question.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+    card.answer.toLowerCase().includes(searchKeyword.toLowerCase())
+  )
+
   return (
     <Container maxWidth="sm">
       <Box sx={{ my: 4 }}>
@@ -92,8 +181,44 @@ export default function FlashcardsPage() {
           Flashcards
         </Typography>
         
+        {/* Section to display existing flashcards */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h5" component="h2" gutterBottom>
+            Existing Flashcards
+          </Typography>
+          <TextField
+            fullWidth
+            label="Search flashcards"
+            value={searchKeyword}
+            onChange={handleSearch}
+            sx={{ mb: 2 }}
+          />
+          {filteredFlashcards.length > 0 ? (
+            filteredFlashcards.map((card, index) => (
+              <Card key={index} sx={{ mb: 2 }}>
+                <CardContent>
+                  <Typography variant="h6" component="div">
+                    Q: {card.question}
+                  </Typography>
+                  <Typography variant="body1" component="div">
+                    A: {card.answer}
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Typography>No existing flashcards found.</Typography>
+          )}
+          <Button variant="contained" onClick={() => fetchExistingFlashcards(true)}>
+            Load More
+          </Button>
+        </Box>
+
         {/* Flashcard generation form */}
         <Box sx={{ mb: 4 }}>
+          <Typography variant="h5" component="h2" gutterBottom>
+            Generate New Flashcards
+          </Typography>
           <TextField
             fullWidth
             label="Enter a topic"
@@ -131,6 +256,15 @@ export default function FlashcardsPage() {
               </Button>
               <Button variant="contained" onClick={handleNextCard}>
                 Next Card
+              </Button>
+            </Box>
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+              <Button
+                variant="contained"
+                onClick={saveFlashcards}
+                disabled={saving || flashcards.length === 0}
+              >
+                {saving ? <CircularProgress size={24} /> : 'Save Flashcards'}
               </Button>
             </Box>
           </>

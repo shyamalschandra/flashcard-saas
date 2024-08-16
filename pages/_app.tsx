@@ -8,15 +8,8 @@ import '../src/styles/globals.css'
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
-    <ClerkProvider {...pageProps}>
-      <Head>
-        <title>SaaS Flashcard App</title>
-        <meta name="viewport" content="initial-scale=1, width=device-width" />
-      </Head>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Component {...pageProps} />
-      </ThemeProvider>
+    <ClerkProvider>
+      <Component {...pageProps} />
     </ClerkProvider>
   )
 }

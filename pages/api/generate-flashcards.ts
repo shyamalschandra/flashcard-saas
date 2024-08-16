@@ -1,10 +1,11 @@
 import { Ollama } from 'ollama';
 import { db } from '../../lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { NextApiRequest, NextApiResponse } from 'next';
 
 const ollama = new Ollama();
 
-export default async function handler(req, res) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { topic, userId } = req.body;
 
   try {
@@ -13,7 +14,7 @@ export default async function handler(req, res) {
       prompt: `You are a helpful assistant that generates flashcards. Each flashcard should have a front (question) and back (answer). Generate 5 flashcards about ${topic}. Format the output as JSON with 'front' and 'back' keys for each card.`,
     });
 
-    const flashcardsData = JSON.parse(response.data);
+    const flashcardsData = JSON.parse(response.response); // Adjusted property access
 
     // Save generated flashcards to Firebase
     const flashcardPromises = flashcardsData.map(card => 
